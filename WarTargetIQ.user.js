@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WarTargetIQ
 // @namespace    samara.WarTargetIQ
-// @version      0.1.5
+// @version      0.1.6
 // @description  Manually open an Okay enemy from an active faction war within your estimated FF range. TornPDA compatible.
 // @match        https://www.torn.com/*
 // @match        https://torn.com/*
@@ -122,7 +122,7 @@
     }
     function torn(path) {
         const q = new URLSearchParams({ key: settings.tornKey || settings.ffKey,
-            comment: 'WarTargetIQ-0.1.5', timestamp: String(Math.floor(Date.now() / 1000)) });
+            comment: 'WarTargetIQ-0.1.6', timestamp: String(Math.floor(Date.now() / 1000)) });
         return request('https://api.torn.com/v2/' + path + '?' + q, 'Torn');
     }
     async function context() {
@@ -137,7 +137,7 @@
     let positionPopup = () => {};
     function say(text, show = false) {
         message.textContent = text;
-        if (action) action.title = text + '. Hold WF for settings.';
+        if (action) action.title = text + '. Settings are in your profile.';
         if (show && root) {
             const content = root.querySelector('.wti-content');
             content.hidden = false;
@@ -149,7 +149,7 @@
     function resetAction() {
         action.disabled = busy;
         action.textContent = busy ? '…' : 'WF';
-        action.setAttribute?.('aria-label', busy ? 'Checking war targets' : 'Find war target. Hold for settings');
+        action.setAttribute?.('aria-label', busy ? 'Checking war targets' : 'Find war target');
     }
     async function checkWar() {
         if (settings.enabled === false || busy || document.hidden || apiPaused || Date.now() < retryAfter || !validSettings(settings)) return;
@@ -226,7 +226,7 @@
         style.textContent += `#wartargetiq-profile{clear:both;margin:12px 0;padding:0;background:var(--default-bg-panel-color,#242424);color:var(--default-color,#eee);border:1px solid #777;border-radius:6px;font:12px Arial,sans-serif}#wartargetiq-profile>summary{padding:12px;font-weight:bold;cursor:pointer}#wartargetiq-profile .wti-profile-body{padding:0 12px 12px}#wartargetiq-profile .wti-enable-label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:bold;margin:8px 0}#wartargetiq-profile input.wti-enable{width:20px;min-height:20px;height:20px;margin:0;padding:0;accent-color:#c62828}#wartargetiq-profile .wti-profile-status{margin:6px 0;line-height:1.4}#wartargetiq-profile .wti-panel>b{display:none}`;
         document.head.appendChild(style);
         root = document.createElement('div'); root.id = 'wartargetiq';
-        root.innerHTML = `<button class="wti-action" type="button" aria-label="Find war target. Hold for settings" title="Tap to find a war target. Hold for settings.">WF</button><div class="wti-content" hidden><div class="wti-head"><b>WarTargetIQ</b><button class="wti-close" type="button" aria-label="Close WarTargetIQ panel">×</button></div><div class="wti-message" role="status" aria-live="polite"></div><div class="wti-panel" hidden><b>WarTargetIQ · v0.1.5</b><small><b>API data use</b> — read before entering a key. Swipe the table sideways.</small><div class="wti-tos"><table><thead><tr><th>Data Storage</th><th>Data Sharing</th><th>Purpose of Use</th><th>Key Storage &amp; Sharing</th><th>Key Access Level</th></tr></thead><tbody><tr><td>WarTargetIQ: settings remain locally until removed. Rosters and estimates exist only in memory during requests.</td><td>WarTargetIQ sends target IDs and your FF key to FFScouter. Direct Torn requests go to Torn. No developer server, analytics or Discord sharing.</td><td>Competitive advantage: filter available current war enemies by estimated FF and open one attack page following your tap.</td><td>Keys stored locally, unencrypted; accessible to scripts/device users with access to this browser. HTTPS requests send FF key to ffscouter.com and effective Torn key to api.torn.com. Never embedded in this published script.</td><td>Torn calls: Public, or Custom user faction/profile and faction wars/members. FF key: registered FFScouter Custom key; see linked terms. Full access unnecessary.</td></tr><tr><td>FFScouter: player IDs/public scores persist indefinitely; key, private score and personal data retained until service-account deletion. Attack/HoF data processed briefly.</td><td>FFScouter owners access private data/key; public IDs and opponent estimates are shared publicly. Private stats are not published.</td><td>FFScouter estimates opponent strength and uses permitted private score/personal data for analysis and model training.</td><td>FFScouter retains registered keys for its API processing. Removing local settings does not erase its records; use its removal form or revoke the key in Torn.</td><td>FFScouter core: basic, battlestats, attacks, hof, personalstats. Registration builder includes additional selections; current scope appears in its terms.</td></tr></tbody></table></div><small><a href="https://www.torn.com/api.html" target="_blank" rel="noopener noreferrer">Torn API terms</a> · <a href="https://www.torn.com/rules.php" target="_blank" rel="noopener noreferrer">Scripting rules</a> · <a href="https://ffscouter.com/" target="_blank" rel="noopener noreferrer">FFScouter terms, Data Policy &amp; removal form</a></small><small>API-only data collection; no background-page scraping, CAPTCHA bypass, automatic attacks or combat clicks. Navigation requires your tap. Independent tool; no Torn staff endorsement.</small><label>Registered FFScouter Torn API key<input class="wti-key" type="password" autocomplete="off" spellcheck="false"></label><label>Separate Torn API key (optional)<input class="wti-torn" type="password" autocomplete="off" spellcheck="false" placeholder="Blank = use FFScouter key"></label><div class="wti-row wti-range"><label>Minimum FF<input class="wti-min" type="number" min="1" step="0.1"></label><label>Maximum FF<input class="wti-max" type="number" min="1" step="0.1"></label></div><small>Uses your currently active ranked wars, raids and territory wars. Only Okay enemies with known FF estimates qualify. FF is an estimate, not a guaranteed win.</small><small>Keys are saved on this device. FF key → ffscouter.com; Torn key → api.torn.com. Use the same registered key as standard FF Scouter. A separate Torn key needs public faction/profile access.</small><button class="wti-save" type="button">Save settings</button><button class="wti-forget wti-save" type="button">Remove saved settings</button></div></div>`;
+        root.innerHTML = `<button class="wti-action" type="button" aria-label="Find war target" title="Tap to find a war target. Drag to move.">WF</button><div class="wti-content" hidden><div class="wti-head"><b>WarTargetIQ</b><button class="wti-close" type="button" aria-label="Close WarTargetIQ panel">×</button></div><div class="wti-message" role="status" aria-live="polite"></div><div class="wti-panel" hidden><b>WarTargetIQ · v0.1.6</b><small><b>API data use</b> — read before entering a key. Swipe the table sideways.</small><div class="wti-tos"><table><thead><tr><th>Data Storage</th><th>Data Sharing</th><th>Purpose of Use</th><th>Key Storage &amp; Sharing</th><th>Key Access Level</th></tr></thead><tbody><tr><td>WarTargetIQ: settings remain locally until removed. Rosters and estimates exist only in memory during requests.</td><td>WarTargetIQ sends target IDs and your FF key to FFScouter. Direct Torn requests go to Torn. No developer server, analytics or Discord sharing.</td><td>Competitive advantage: filter available current war enemies by estimated FF and open one attack page following your tap.</td><td>Keys stored locally, unencrypted; accessible to scripts/device users with access to this browser. HTTPS requests send FF key to ffscouter.com and effective Torn key to api.torn.com. Never embedded in this published script.</td><td>Torn calls: Public, or Custom user faction/profile and faction wars/members. FF key: registered FFScouter Custom key; see linked terms. Full access unnecessary.</td></tr><tr><td>FFScouter: player IDs/public scores persist indefinitely; key, private score and personal data retained until service-account deletion. Attack/HoF data processed briefly.</td><td>FFScouter owners access private data/key; public IDs and opponent estimates are shared publicly. Private stats are not published.</td><td>FFScouter estimates opponent strength and uses permitted private score/personal data for analysis and model training.</td><td>FFScouter retains registered keys for its API processing. Removing local settings does not erase its records; use its removal form or revoke the key in Torn.</td><td>FFScouter core: basic, battlestats, attacks, hof, personalstats. Registration builder includes additional selections; current scope appears in its terms.</td></tr></tbody></table></div><small><a href="https://www.torn.com/api.html" target="_blank" rel="noopener noreferrer">Torn API terms</a> · <a href="https://www.torn.com/rules.php" target="_blank" rel="noopener noreferrer">Scripting rules</a> · <a href="https://ffscouter.com/" target="_blank" rel="noopener noreferrer">FFScouter terms, Data Policy &amp; removal form</a></small><small>API-only data collection; no background-page scraping, CAPTCHA bypass, automatic attacks or combat clicks. Navigation requires your tap. Independent tool; no Torn staff endorsement.</small><label>Registered FFScouter Torn API key<input class="wti-key" type="password" autocomplete="off" spellcheck="false"></label><label>Separate Torn API key (optional)<input class="wti-torn" type="password" autocomplete="off" spellcheck="false" placeholder="Blank = use FFScouter key"></label><div class="wti-row wti-range"><label>Minimum FF<input class="wti-min" type="number" min="1" step="0.1"></label><label>Maximum FF<input class="wti-max" type="number" min="1" step="0.1"></label></div><small>Uses your currently active ranked wars, raids and territory wars. Only Okay enemies with known FF estimates qualify. FF is an estimate, not a guaranteed win.</small><small>Keys are saved on this device. FF key → ffscouter.com; Torn key → api.torn.com. Use the same registered key as standard FF Scouter. A separate Torn key needs public faction/profile access.</small><button class="wti-save" type="button">Save settings</button><button class="wti-forget wti-save" type="button">Remove saved settings</button></div></div>`;
         document.body.appendChild(root);
         action = root.querySelector('.wti-action'); message = root.querySelector('.wti-message');
         panel = root.querySelector('.wti-panel'); keyInput = root.querySelector('.wti-key');
@@ -241,7 +241,7 @@
             panel.hidden = false;
             positionPopup();
         };
-        let pressTimer, held = false, gesture = null, manuallyPlaced = false;
+        let suppressClick = false, gesture = null, manuallyPlaced = false;
         const place = (x, y) => {
             const size = action.getBoundingClientRect();
             const maxX = Math.max(0, window.innerWidth - size.width - 8);
@@ -310,19 +310,17 @@
         };
         action.addEventListener('pointerdown', e => {
             if (e.button !== 0 || e.isPrimary === false || busy || gesture) return;
-            held = false;
+            suppressClick = false;
             const rect = action.getBoundingClientRect();
             gesture = { id: e.pointerId, x: e.clientX, y: e.clientY,
                 left: rect.left, top: rect.top, dragging: false };
             try { action.setPointerCapture(e.pointerId); } catch (_) {}
-            clearTimeout(pressTimer);
-            pressTimer = setTimeout(() => { held = true; openSettings(); }, 550);
         });
         action.addEventListener('pointermove', e => {
             if (!gesture || gesture.id !== e.pointerId) return;
             const dx = e.clientX - gesture.x, dy = e.clientY - gesture.y;
             if (!gesture.dragging && Math.hypot(dx, dy) <= 8) return;
-            gesture.dragging = true; manuallyPlaced = true; held = true; clearTimeout(pressTimer);
+            gesture.dragging = true; manuallyPlaced = true; suppressClick = true;
             root.querySelector('.wti-content').hidden = true;
             action.style.cursor = 'grabbing';
             place(gesture.left + dx, gesture.top + dy);
@@ -330,9 +328,8 @@
         });
         const finishGesture = e => {
             if (!gesture || gesture.id !== e.pointerId) return;
-            clearTimeout(pressTimer);
             if (gesture.dragging) {
-                held = true;
+                suppressClick = true;
                 const rect = action.getBoundingClientRect();
                 savePosition(place(rect.left, rect.top));
             }
@@ -345,11 +342,10 @@
         action.addEventListener('contextmenu', e => {
             e.preventDefault();
             if (gesture?.dragging) return;
-            held = true; openSettings();
+            suppressClick = true;
         });
         action.addEventListener('click', e => {
-            if (held) { held = false; e.preventDefault(); return; }
-            if (e.shiftKey) { openSettings(); return; }
+            if (suppressClick) { suppressClick = false; e.preventDefault(); return; }
             findTarget();
         });
         window.addEventListener('resize', () => {
@@ -397,7 +393,7 @@
                     toggle.checked = settings.enabled !== false;
                     status.textContent = settings.enabled === false
                         ? 'Off — WF is hidden and WarIQ makes no new API requests.'
-                        : 'On — tap WF to find a target. Drag to move it; hold for settings.';
+                        : 'On — tap WF to find a target. Drag to move it. Settings are available here.';
                 };
                 toggle.addEventListener('change', () => {
                     const next = { ...settings, enabled: toggle.checked };
