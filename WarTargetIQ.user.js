@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WarTargetIQ
 // @namespace    samara.WarTargetIQ
-// @version      0.1.3
+// @version      0.1.4
 // @description  Manually open an Okay enemy from an active faction war within your estimated FF range. TornPDA compatible.
 // @match        https://www.torn.com/*
 // @match        https://torn.com/*
@@ -28,7 +28,7 @@
     'use strict';
     const STORAGE = 'wartargetiq_settings_v1';
     const POSITION = 'wartargetiq_position_v1';
-    const DEFAULTS = { ffKey: '', tornKey: '', min: 1, max: 3 };
+    const DEFAULTS = { ffKey: '', tornKey: '', min: 1, max: 3, enabled: true };
     let settings;
     try { settings = { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORAGE) || '{}') }; }
     catch (_) { settings = { ...DEFAULTS }; }
@@ -75,6 +75,7 @@
             ffMap.get(Number(m.id)) <= s.max);
     }
     async function request(url, service) {
+        if (settings.enabled === false) throw new Error('WarIQ is disabled. Enable it in profile settings.');
         if (apiPaused) throw new Error('API requests paused. Check your keys and save settings to resume.');
         if (Date.now() < retryAfter) throw new Error('API rate limit reached. Wait two minutes before retrying.');
         let response;
@@ -121,7 +122,7 @@
     }
     function torn(path) {
         const q = new URLSearchParams({ key: settings.tornKey || settings.ffKey,
-            comment: 'WarTargetIQ-0.1.3', timestamp: String(Math.floor(Date.now() / 1000)) });
+            comment: 'WarTargetIQ-0.1.4', timestamp: String(Math.floor(Date.now() / 1000)) });
         return request('https://api.torn.com/v2/' + path + '?' + q, 'Torn');
     }
     async function context() {
@@ -130,6 +131,8 @@
         const ownId = Number(user.faction.id);
         return { ownId, enemies: activeEnemies(data.wars, ownId) };
     }
+    let syncEnabledUI = () => {};
+    let profileDetails;
     let toastTimer;
     let positionPopup = () => {};
     function say(text, show = false) {
@@ -149,7 +152,7 @@
         action.setAttribute?.('aria-label', busy ? 'Checking war targets' : 'Find war target. Hold for settings');
     }
     async function checkWar() {
-        if (busy || document.hidden || apiPaused || Date.now() < retryAfter || !validSettings(settings)) return;
+        if (settings.enabled === false || busy || document.hidden || apiPaused || Date.now() < retryAfter || !validSettings(settings)) return;
         const token = generation;
         try {
             const c = await context();
@@ -164,7 +167,7 @@
         resetAction();
     }
     async function findTarget() {
-        if (busy || document.hidden) return;
+        if (settings.enabled === false || busy || document.hidden) return;
         if (apiPaused) { panel.hidden = false; say('API requests paused. Check your keys and save settings to resume.', true); return; }
         if (!validSettings(settings)) { panel.hidden = false; say('Save your FFScouter key and FF range first.', true); return; }
         if (Date.now() - lastClick < 8000) { say('Wait a few seconds before checking again.', true); return; }
@@ -200,7 +203,7 @@
             const chosen = candidates[Math.floor(Math.random() * candidates.length)];
             // Re-check wars and chosen player's status/faction just before navigation.
             const [current, detail] = await Promise.all([context(), torn('user/' + chosen.id + '/profile')]);
-            if (token !== generation || document.hidden) { say('Cancelled — tap again when viewing Torn.', true); return; }
+            if (settings.enabled === false || token !== generation || document.hidden) { say('Cancelled — tap again when viewing Torn.', true); return; }
             const p = detail.profile;
             if (current.ownId !== c.ownId || !current.enemies.has(chosen.factionId)) {
                 hasWar = current.enemies.size > 0;
@@ -219,10 +222,11 @@
     function boot() {
         if (document.getElementById('wartargetiq')) return;
         const style = document.createElement('style');
-        style.textContent = `#wartargetiq{position:fixed;left:8px;bottom:76px;z-index:999990;font:12px Arial,sans-serif;color:#eee}#wartargetiq button{min-height:36px;background:#3d3d3d;color:#fff;border:1px solid #777;border-radius:5px;padding:6px 8px;font-size:12px}#wartargetiq button.wti-action{display:block;width:42px;height:42px;min-height:42px;padding:0;border-radius:50%;background:#c62828;border:1px solid #ff7474;color:#fff;font-size:12px;font-weight:bold;box-shadow:0 2px 8px #0007;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}#wartargetiq button.wti-action:active{background:#a51e1e}#wartargetiq button:disabled{opacity:.65}#wartargetiq .wti-content{position:absolute;left:0;bottom:50px;width:260px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 140px);overflow:auto;box-sizing:border-box;padding:10px;background:#242424;border:1px solid #777;border-radius:8px;box-shadow:0 3px 12px #0008}#wartargetiq .wti-row{display:flex;gap:6px}#wartargetiq .wti-head{display:flex;justify-content:space-between;align-items:center}#wartargetiq .wti-close{min-height:28px;padding:2px 8px}#wartargetiq .wti-message{margin-top:6px;line-height:1.35;overflow-wrap:anywhere}#wartargetiq label{display:block;margin-top:8px}#wartargetiq input{width:100%;box-sizing:border-box;min-height:32px;margin-top:3px;background:#151515;color:#fff;border:1px solid #777;border-radius:4px;padding:5px}#wartargetiq .wti-range label{width:50%}#wartargetiq small{display:block;line-height:1.35;color:#ccc;margin-top:8px}#wartargetiq .wti-tos{overflow-x:auto;margin-top:8px}#wartargetiq table{border-collapse:collapse;min-width:620px;font-size:11px;line-height:1.35}#wartargetiq th,#wartargetiq td{border:1px solid #666;padding:6px;text-align:left;vertical-align:top}#wartargetiq a{color:#ffaaaa}#wartargetiq [hidden]{display:none!important}#wartargetiq .wti-save{margin-top:8px;width:100%}`;
+        style.textContent = `#wartargetiq{position:fixed;left:8px;bottom:76px;z-index:999990;font:12px Arial,sans-serif;color:#eee}:is(#wartargetiq,#wartargetiq-profile) button{min-height:36px;background:#3d3d3d;color:#fff;border:1px solid #777;border-radius:5px;padding:6px 8px;font-size:12px}#wartargetiq button.wti-action{display:block;width:42px;height:42px;min-height:42px;padding:0;border-radius:50%;background:#c62828;border:1px solid #ff7474;color:#fff;font-size:12px;font-weight:bold;box-shadow:0 2px 8px #0007;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}#wartargetiq button.wti-action:active{background:#a51e1e}#wartargetiq button:disabled{opacity:.65}#wartargetiq .wti-content{position:absolute;left:0;bottom:50px;width:260px;max-width:calc(100vw - 24px);max-height:calc(100dvh - 140px);overflow:auto;box-sizing:border-box;padding:10px;background:#242424;border:1px solid #777;border-radius:8px;box-shadow:0 3px 12px #0008}:is(#wartargetiq,#wartargetiq-profile) .wti-row{display:flex;gap:6px}#wartargetiq .wti-head{display:flex;justify-content:space-between;align-items:center}#wartargetiq .wti-close{min-height:28px;padding:2px 8px}#wartargetiq .wti-message{margin-top:6px;line-height:1.35;overflow-wrap:anywhere}:is(#wartargetiq,#wartargetiq-profile) label{display:block;margin-top:8px}:is(#wartargetiq,#wartargetiq-profile) input{width:100%;box-sizing:border-box;min-height:32px;margin-top:3px;background:#151515;color:#fff;border:1px solid #777;border-radius:4px;padding:5px}:is(#wartargetiq,#wartargetiq-profile) .wti-range label{width:50%}:is(#wartargetiq,#wartargetiq-profile) small{display:block;line-height:1.35;color:#ccc;margin-top:8px}:is(#wartargetiq,#wartargetiq-profile) .wti-tos{overflow-x:auto;margin-top:8px}:is(#wartargetiq,#wartargetiq-profile) table{border-collapse:collapse;min-width:620px;font-size:11px;line-height:1.35}#wartargetiq th,:is(#wartargetiq,#wartargetiq-profile) td{border:1px solid #666;padding:6px;text-align:left;vertical-align:top}:is(#wartargetiq,#wartargetiq-profile) a{color:#ffaaaa}:is(#wartargetiq,#wartargetiq-profile) [hidden]{display:none!important}:is(#wartargetiq,#wartargetiq-profile) .wti-save{margin-top:8px;width:100%}`;
+        style.textContent += `#wartargetiq-profile{clear:both;margin:12px 0;padding:0;background:var(--default-bg-panel-color,#242424);color:var(--default-color,#eee);border:1px solid #777;border-radius:6px;font:12px Arial,sans-serif}#wartargetiq-profile>summary{padding:12px;font-weight:bold;cursor:pointer}#wartargetiq-profile .wti-profile-body{padding:0 12px 12px}#wartargetiq-profile .wti-enable-label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:bold;margin:8px 0}#wartargetiq-profile input.wti-enable{width:20px;min-height:20px;height:20px;margin:0;padding:0;accent-color:#c62828}#wartargetiq-profile .wti-profile-status{margin:6px 0;line-height:1.4}#wartargetiq-profile .wti-panel>b{display:none}`;
         document.head.appendChild(style);
         root = document.createElement('div'); root.id = 'wartargetiq';
-        root.innerHTML = `<button class="wti-action" type="button" aria-label="Find war target. Hold for settings" title="Tap to find a war target. Hold for settings.">WFF</button><div class="wti-content" hidden><div class="wti-head"><b>WarTargetIQ</b><button class="wti-close" type="button" aria-label="Close WarTargetIQ panel">×</button></div><div class="wti-message" role="status" aria-live="polite"></div><div class="wti-panel" hidden><b>WarTargetIQ · v0.1.3</b><small><b>API data use</b> — read before entering a key. Swipe the table sideways.</small><div class="wti-tos"><table><thead><tr><th>Data Storage</th><th>Data Sharing</th><th>Purpose of Use</th><th>Key Storage &amp; Sharing</th><th>Key Access Level</th></tr></thead><tbody><tr><td>WarTargetIQ: settings remain locally until removed. Rosters and estimates exist only in memory during requests.</td><td>WarTargetIQ sends target IDs and your FF key to FFScouter. Direct Torn requests go to Torn. No developer server, analytics or Discord sharing.</td><td>Competitive advantage: filter available current war enemies by estimated FF and open one attack page following your tap.</td><td>Keys stored locally, unencrypted; accessible to scripts/device users with access to this browser. HTTPS requests send FF key to ffscouter.com and effective Torn key to api.torn.com. Never embedded in this published script.</td><td>Torn calls: Public, or Custom user faction/profile and faction wars/members. FF key: registered FFScouter Custom key; see linked terms. Full access unnecessary.</td></tr><tr><td>FFScouter: player IDs/public scores persist indefinitely; key, private score and personal data retained until service-account deletion. Attack/HoF data processed briefly.</td><td>FFScouter owners access private data/key; public IDs and opponent estimates are shared publicly. Private stats are not published.</td><td>FFScouter estimates opponent strength and uses permitted private score/personal data for analysis and model training.</td><td>FFScouter retains registered keys for its API processing. Removing local settings does not erase its records; use its removal form or revoke the key in Torn.</td><td>FFScouter core: basic, battlestats, attacks, hof, personalstats. Registration builder includes additional selections; current scope appears in its terms.</td></tr></tbody></table></div><small><a href="https://www.torn.com/api.html" target="_blank" rel="noopener noreferrer">Torn API terms</a> · <a href="https://www.torn.com/rules.php" target="_blank" rel="noopener noreferrer">Scripting rules</a> · <a href="https://ffscouter.com/" target="_blank" rel="noopener noreferrer">FFScouter terms, Data Policy &amp; removal form</a></small><small>API-only data collection; no background-page scraping, CAPTCHA bypass, automatic attacks or combat clicks. Navigation requires your tap. Independent tool; no Torn staff endorsement.</small><label>Registered FFScouter Torn API key<input class="wti-key" type="password" autocomplete="off" spellcheck="false"></label><label>Separate Torn API key (optional)<input class="wti-torn" type="password" autocomplete="off" spellcheck="false" placeholder="Blank = use FFScouter key"></label><div class="wti-row wti-range"><label>Minimum FF<input class="wti-min" type="number" min="1" step="0.1"></label><label>Maximum FF<input class="wti-max" type="number" min="1" step="0.1"></label></div><small>Uses your currently active ranked wars, raids and territory wars. Only Okay enemies with known FF estimates qualify. FF is an estimate, not a guaranteed win.</small><small>Keys are saved on this device. FF key → ffscouter.com; Torn key → api.torn.com. Use the same registered key as standard FF Scouter. A separate Torn key needs public faction/profile access.</small><button class="wti-save" type="button">Save settings</button><button class="wti-forget wti-save" type="button">Remove saved settings</button></div></div>`;
+        root.innerHTML = `<button class="wti-action" type="button" aria-label="Find war target. Hold for settings" title="Tap to find a war target. Hold for settings.">WFF</button><div class="wti-content" hidden><div class="wti-head"><b>WarTargetIQ</b><button class="wti-close" type="button" aria-label="Close WarTargetIQ panel">×</button></div><div class="wti-message" role="status" aria-live="polite"></div><div class="wti-panel" hidden><b>WarTargetIQ · v0.1.4</b><small><b>API data use</b> — read before entering a key. Swipe the table sideways.</small><div class="wti-tos"><table><thead><tr><th>Data Storage</th><th>Data Sharing</th><th>Purpose of Use</th><th>Key Storage &amp; Sharing</th><th>Key Access Level</th></tr></thead><tbody><tr><td>WarTargetIQ: settings remain locally until removed. Rosters and estimates exist only in memory during requests.</td><td>WarTargetIQ sends target IDs and your FF key to FFScouter. Direct Torn requests go to Torn. No developer server, analytics or Discord sharing.</td><td>Competitive advantage: filter available current war enemies by estimated FF and open one attack page following your tap.</td><td>Keys stored locally, unencrypted; accessible to scripts/device users with access to this browser. HTTPS requests send FF key to ffscouter.com and effective Torn key to api.torn.com. Never embedded in this published script.</td><td>Torn calls: Public, or Custom user faction/profile and faction wars/members. FF key: registered FFScouter Custom key; see linked terms. Full access unnecessary.</td></tr><tr><td>FFScouter: player IDs/public scores persist indefinitely; key, private score and personal data retained until service-account deletion. Attack/HoF data processed briefly.</td><td>FFScouter owners access private data/key; public IDs and opponent estimates are shared publicly. Private stats are not published.</td><td>FFScouter estimates opponent strength and uses permitted private score/personal data for analysis and model training.</td><td>FFScouter retains registered keys for its API processing. Removing local settings does not erase its records; use its removal form or revoke the key in Torn.</td><td>FFScouter core: basic, battlestats, attacks, hof, personalstats. Registration builder includes additional selections; current scope appears in its terms.</td></tr></tbody></table></div><small><a href="https://www.torn.com/api.html" target="_blank" rel="noopener noreferrer">Torn API terms</a> · <a href="https://www.torn.com/rules.php" target="_blank" rel="noopener noreferrer">Scripting rules</a> · <a href="https://ffscouter.com/" target="_blank" rel="noopener noreferrer">FFScouter terms, Data Policy &amp; removal form</a></small><small>API-only data collection; no background-page scraping, CAPTCHA bypass, automatic attacks or combat clicks. Navigation requires your tap. Independent tool; no Torn staff endorsement.</small><label>Registered FFScouter Torn API key<input class="wti-key" type="password" autocomplete="off" spellcheck="false"></label><label>Separate Torn API key (optional)<input class="wti-torn" type="password" autocomplete="off" spellcheck="false" placeholder="Blank = use FFScouter key"></label><div class="wti-row wti-range"><label>Minimum FF<input class="wti-min" type="number" min="1" step="0.1"></label><label>Maximum FF<input class="wti-max" type="number" min="1" step="0.1"></label></div><small>Uses your currently active ranked wars, raids and territory wars. Only Okay enemies with known FF estimates qualify. FF is an estimate, not a guaranteed win.</small><small>Keys are saved on this device. FF key → ffscouter.com; Torn key → api.torn.com. Use the same registered key as standard FF Scouter. A separate Torn key needs public faction/profile access.</small><button class="wti-save" type="button">Save settings</button><button class="wti-forget wti-save" type="button">Remove saved settings</button></div></div>`;
         document.body.appendChild(root);
         action = root.querySelector('.wti-action'); message = root.querySelector('.wti-message');
         panel = root.querySelector('.wti-panel'); keyInput = root.querySelector('.wti-key');
@@ -232,6 +236,7 @@
         fill();
         const openSettings = () => {
             clearTimeout(toastTimer);
+            if (profileDetails?.isConnected) { profileDetails.open = true; panel.hidden = false; return; }
             root.querySelector('.wti-content').hidden = false;
             panel.hidden = false;
             positionPopup();
@@ -321,13 +326,13 @@
         });
         root.querySelector('.wti-save').addEventListener('click', () => {
             if (busy) return;
-            const next = { ffKey: keyInput.value.trim(), tornKey: tornInput.value.trim(),
+            const next = { enabled: settings.enabled !== false, ffKey: keyInput.value.trim(), tornKey: tornInput.value.trim(),
                 min: minInput.value.trim() ? Number(minInput.value) : NaN,
                 max: maxInput.value.trim() ? Number(maxInput.value) : NaN };
             if (!validSettings(next)) { say('Use 16-character keys and an FF range with 1 ≤ minimum ≤ maximum.'); return; }
             try { localStorage.setItem(STORAGE, JSON.stringify(next)); }
             catch (_) { say('Could not save settings on this device.'); return; }
-            settings = next; apiPaused = false; retryAfter = 0; generation++; panel.hidden = true; root.querySelector('.wti-content').hidden = true; hasWar = false;
+            settings = next; apiPaused = false; retryAfter = 0; generation++; panel.hidden = !!(!profileDetails?.isConnected); root.querySelector('.wti-content').hidden = true; hasWar = false; syncEnabledUI();
             say('Saved. Checking for war…'); checkWar();
         });
         root.querySelector('.wti-forget').addEventListener('click', () => {
@@ -335,8 +340,59 @@
             try { localStorage.removeItem(STORAGE); localStorage.removeItem(POSITION); }
             catch (_) { say('Could not remove saved settings.'); return; }
             settings = { ...DEFAULTS }; apiPaused = false; retryAfter = 0; generation++; hasWar = false; fill();
-            panel.hidden = false; say('Settings removed.'); resetAction();
+            panel.hidden = false; syncEnabledUI(); say('Settings removed.'); resetAction();
         });
+        const mountProfileSettings = () => {
+            if (document.hidden || location.pathname !== '/profiles.php') return;
+            const ff = document.querySelector('ff-settings-panel');
+            const wrapper = document.querySelector('.profile-wrapper');
+            const anchor = ff || wrapper;
+            if (!anchor?.parentNode) return;
+            if (!profileDetails) {
+                profileDetails = document.createElement('details');
+                profileDetails.id = 'wartargetiq-profile';
+                profileDetails.className = 'cont-gray border-round';
+                profileDetails.innerHTML = `<summary>WarIQ Settings</summary><div class="wti-profile-body"><label class="wti-enable-label"><input class="wti-enable" type="checkbox">Enable WarIQ</label><div class="wti-profile-status" role="status"></div><div class="wti-profile-form"></div></div>`;
+                const toggle = profileDetails.querySelector('.wti-enable');
+                const status = profileDetails.querySelector('.wti-profile-status');
+                syncEnabledUI = () => {
+                    root.hidden = settings.enabled === false;
+                    toggle.checked = settings.enabled !== false;
+                    status.textContent = settings.enabled === false
+                        ? 'Off — WFF is hidden and WarIQ makes no new API requests.'
+                        : 'On — tap WFF to find a target. Drag to move it; hold for settings.';
+                };
+                toggle.addEventListener('change', () => {
+                    const next = { ...settings, enabled: toggle.checked };
+                    try { localStorage.setItem(STORAGE, JSON.stringify(next)); }
+                    catch (_) { toggle.checked = settings.enabled !== false; status.textContent = 'Could not save the toggle on this device.'; return; }
+                    settings = next; generation++; hasWar = false;
+                    clearTimeout(toastTimer); root.querySelector('.wti-content').hidden = true;
+                    syncEnabledUI();
+                    if (settings.enabled !== false) checkWar();
+                });
+                profileDetails.querySelector('.wti-profile-form').appendChild(panel);
+                panel.hidden = false;
+                syncEnabledUI();
+            }
+            // Observe only the current foreground profile layout, never scrape another tab.
+            if (anchor.nextElementSibling !== profileDetails)
+                anchor.parentNode.insertBefore(profileDetails, anchor.nextSibling);
+        };
+        root.hidden = settings.enabled === false;
+        mountProfileSettings();
+        if (location.pathname === '/profiles.php') {
+            let mountTimer;
+            const observer = new MutationObserver(() => {
+                if (document.hidden) return;
+                clearTimeout(mountTimer);
+                mountTimer = setTimeout(mountProfileSettings, 100);
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) mountProfileSettings();
+            });
+        }
         if (!validSettings(settings)) { openSettings(); say('Enter your FFScouter key to get started.'); }
         else checkWar();
         resetAction();
